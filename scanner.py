@@ -10,7 +10,7 @@ from pathlib import Path
 # ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 BRAND     = "NetLeafy Scanner"
-VERSION   = "1.0"
+VERSION   = "1.1"
 PASTE_URL = "https://code-leafy.github.io/NetLeafy"
 CHANNEL   = "https://t.me/codeleafy"
 
@@ -25,7 +25,7 @@ MG  = "\033[95m"
 BL  = "\033[94m"
 WH  = "\033[97m"
 
-BAD_CODES = {"403", "502", "503", "521", "522", "523", "530"}
+BAD_CODES = {"000", "403", "502", "503", "521", "522", "523", "530"}
 
 # ─── DATABASES ────────────────────────────────────────────────────────────────
 
@@ -92,7 +92,7 @@ PERF_PROFILES = {
     "2": {"name": "Mid-Range Mobile",        "threads": 40,   "timeout": 4},
     "3": {"name": "Desktop / PC",            "threads": 80,   "timeout": 3},
     "4": {"name": "High-End PC / Server",    "threads": 150,  "timeout": 2},
-    "5": {"name": "Custom",                  "threads": None,  "timeout": None},
+    "5": {"name": "Custom",                  "threads": None, "timeout": None},
 }
 
 DNS_PROFILES = {
@@ -100,9 +100,32 @@ DNS_PROFILES = {
     "2": {"name": "Shecan DNS Bypass",  "servers": ["178.22.122.101", "185.51.200.2"]},
 }
 
-# ─── OUTPUT PATH ──────────────────────────────────────────────────────────────
+# ─── DEPENDENCIES & OS CHECK ──────────────────────────────────────────────────
+
+def check_curl():
+    try:
+        out = subprocess.run(["curl", "-V"], capture_output=True, text=True, timeout=3)
+        if out.returncode != 0:
+            return False, "cURL is returning an error."
+        return True, ""
+    except Exception:
+        return False, "cURL is not installed or not in PATH."
+
+def has_dns_support():
+    try:
+        out = subprocess.run(["curl", "--dns-servers", "8.8.8.8", "http://127.0.0.1"], capture_output=True, text=True, timeout=2)
+        if "doesn't support this" in out.stderr or "unknown option" in out.stderr:
+            return False
+    except Exception:
+        pass
+    return True
 
 def get_output_dir():
+    if "com.termux" in os.environ.get("PREFIX", ""):
+        termux_dl = Path.home() / "storage" / "downloads"
+        if termux_dl.exists() and termux_dl.is_dir():
+            return termux_dl
+        return Path.home()
     dl = Path.home() / "Downloads"
     if dl.exists() and dl.is_dir():
         return dl
@@ -116,7 +139,7 @@ def clear():
 def tw():
     try:
         return min(os.get_terminal_size().columns, 74)
-    except:
+    except Exception:
         return 70
 
 def hline():
@@ -128,8 +151,12 @@ def box_line(text, color=WH):
 
 def prompt(text, default=None):
     suffix = f" {DIM}[{default}]{R}" if default is not None else ""
-    val    = input(f"  {YL}›{R} {WH}{text}{R}{suffix}  ").strip()
-    return val if val else default
+    try:
+        val = input(f"  {YL}›{R} {WH}{text}{R}{suffix}  ").strip()
+        return val if val else default
+    except KeyboardInterrupt:
+        print(f"\n\n  {RD}✗  Operation cancelled.{R}\n")
+        sys.exit(0)
 
 def section(title):
     print(f"\n  {B}{CY}── {title}{R}")
@@ -137,7 +164,7 @@ def section(title):
 def print_header():
     clear()
     w     = tw()
-    title = f"  ⚡  {BRAND}  v{VERSION}  ⚡  "
+    title = f"  🍃  {BRAND}  v{VERSION}  🍃  "
     pad   = max(0, w - 4 - len(title))
     lp    = pad // 2
     rp    = pad - lp
@@ -155,11 +182,12 @@ def draw_progress(done, total, found):
     filled = done * bar_w // total
     pct    = done * 100 // total
     bar    = f"{CY}{'█' * filled}{'░' * (bar_w - filled)}{R}"
-    sys.stdout.write(f"\r  {bar}  {B}{pct:>3}%{R}  {GR}✔ {found}{R}   ")
+    sys.stdout.write(f"\r{' ' * (tw()-1)}\r  {bar}  {B}{pct:>3}%{R}  {GR}✔ {found}{R}   ")
     sys.stdout.flush()
 
 def erase_line():
-    sys.stdout.write(f"\r{' ' * tw()}\r")
+    sys.stdout.write(f"\r{' ' * (tw()-1)}\r")
+    sys.stdout.flush()
 
 # ─── VLESS HELPERS ────────────────────────────────────────────────────────────
 
@@ -181,23 +209,25 @@ def parse_vless(url):
             "security": params.get("security", ["tls"])[0],
             "type":     params.get("type",     ["xhttp"])[0],
         }
-    except:
+    except Exception:
         return None
 
 def build_vless(ip, sni, p, ms, tag):
     remark = f"NL_{tag}_{ms:.0f}ms_{sni.split('.')[0]}"
+    v_host = p.get("host") or sni
+    v_path = p.get("path") or "/"
     return (
         f"vless://{p['uuid']}@{ip}:{p['port']}?"
         f"allowInsecure=1&alpn={quote(p['alpn'], safe='')}&encryption=none"
-        f"&host={quote(p['host'], safe='')}&mode=auto"
-        f"&path={quote(p['path'], safe='')}&security={p['security']}"
+        f"&host={quote(v_host, safe='')}&mode=auto"
+        f"&path={quote(v_path, safe='')}&security={p['security']}"
         f"&sni={sni}&type={p['type']}#{remark}"
     )
 
 # ─── PROBE WORKERS ────────────────────────────────────────────────────────────
 
 def _flags():
-    return subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    return getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
 
 def probe_vless(ip, sni, base, timeout, dns_servers):
     host = base.get("host") or sni
@@ -209,6 +239,7 @@ def probe_vless(ip, sni, base, timeout, dns_servers):
         "curl", "-s", "-o", os.devnull,
         "-w", "%{http_code}:%{time_appconnect}:%{time_total}",
         "--max-time", str(timeout),
+        "--connect-timeout", str(timeout),
         f"https://{sni}{path}",
         "--resolve", f"{sni}:443:{ip}",
         "-H", f"Host: {host}",
@@ -219,22 +250,25 @@ def probe_vless(ip, sni, base, timeout, dns_servers):
 
     try:
         out = subprocess.run(
-            cmd, capture_output=True, text=True, creationflags=_flags()
+            cmd, capture_output=True, text=True, creationflags=_flags(), timeout=timeout + 2
         ).stdout.strip()
 
         if not out or ":" not in out:
             return None
 
-        parts    = out.split(":")
+        parts = out.split(":")
+        if len(parts) < 3 or not parts[1] or not parts[2]:
+            return None
+
         code     = parts[0]
         tls_ms   = float(parts[1]) * 1000
         total_ms = float(parts[2]) * 1000
 
-        if tls_ms <= 0 or code == "000" or code in BAD_CODES:
+        if tls_ms <= 0 or code in BAD_CODES:
             return None
 
         return ip, sni, total_ms, code
-    except:
+    except Exception:
         return None
 
 def probe_basic(ip, sni, timeout, dns_servers):
@@ -242,6 +276,7 @@ def probe_basic(ip, sni, timeout, dns_servers):
         "curl", "-s", "-o", os.devnull,
         "-w", "%{http_code}",
         "--max-time", str(timeout),
+        "--connect-timeout", str(timeout),
         f"https://{sni}",
         "--resolve", f"{sni}:443:{ip}",
         "-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -250,71 +285,103 @@ def probe_basic(ip, sni, timeout, dns_servers):
         cmd += ["--dns-servers", ",".join(dns_servers)]
 
     try:
-        code = subprocess.run(
-            cmd, capture_output=True, text=True, creationflags=_flags()
-        ).stdout.strip()
-
-        if code and code not in {"000", ""} and code not in BAD_CODES:
+        res = subprocess.run(
+            cmd, capture_output=True, text=True, creationflags=_flags(), timeout=timeout + 2
+        )
+        code = res.stdout.strip()
+        if code and code not in BAD_CODES:
             return ip, sni, code
-    except:
+    except Exception:
         pass
     return None
 
 # ─── SCAN ENGINE ──────────────────────────────────────────────────────────────
 
 def run_scan(mode, threads, timeout, dns_servers, base_params=None):
-    tasks      = [(ip, sni) for ip in IPS for sni in DOMAINS]
-    total      = len(tasks)
-    done       = 0
-    results    = []
-    found_ips  = Counter()
-    found_snis = Counter()
-    dns_tag    = "SH" if dns_servers else "DIR"
+    tasks       = [(ip, sni) for ip in IPS for sni in DOMAINS]
+    total       = len(tasks)
+    done        = 0
+    results     = []
+    found_ips   = Counter()
+    found_snis  = Counter()
+    dns_tag     = "SH" if dns_servers else "DIR"
+    interrupted = False
 
-    with ThreadPoolExecutor(max_workers=threads) as ex:
-        if mode == "vless":
-            futures = {
-                ex.submit(probe_vless, ip, sni, base_params, timeout, dns_servers): None
-                for ip, sni in tasks
-            }
-        else:
-            futures = {
-                ex.submit(probe_basic, ip, sni, timeout, dns_servers): None
-                for ip, sni in tasks
-            }
+    ex = ThreadPoolExecutor(max_workers=threads)
 
-        try:
-            for fut in as_completed(futures):
-                done += 1
-                res  = fut.result()
-                draw_progress(done, total, len(results))
+    if mode == "vless":
+        futures = [ex.submit(probe_vless, ip, sni, base_params, timeout, dns_servers) for ip, sni in tasks]
+    else:
+        futures = [ex.submit(probe_basic, ip, sni, timeout, dns_servers) for ip, sni in tasks]
 
-                if res:
-                    if mode == "vless":
-                        ip, sni, ms, code = res
-                        cfg = build_vless(ip, sni, base_params, ms, dns_tag)
-                        results.append({"ip": ip, "sni": sni, "ms": ms, "code": code, "cfg": cfg})
-                        col = GR if ms < 800 else YL
-                        erase_line()
-                        print(f"  {GR}✔{R}  {B}{ip:<17}{R}  {CY}{sni:<42}{R}  {col}{ms:.0f}ms{R}  {DIM}{code}{R}")
-                    else:
-                        ip, sni, code = res
-                        results.append({"ip": ip, "sni": sni, "code": code})
-                        erase_line()
-                        print(f"  {GR}✔{R}  {B}{ip:<17}{R}  {CY}{sni:<42}{R}  {DIM}{code}{R}")
+    try:
+        for fut in as_completed(futures):
+            done += 1
+            try:
+                res = fut.result()
+            except Exception:
+                res = None
 
-                    found_ips[ip]   += 1
-                    found_snis[sni] += 1
+            draw_progress(done, total, len(results))
 
-        except KeyboardInterrupt:
-            erase_line()
-            print(f"  {YL}⚠  Interrupted — saving results...{R}")
-            ex.shutdown(wait=False, cancel_futures=True)
+            if res:
+                if mode == "vless":
+                    ip, sni, ms, code = res
+                    cfg = build_vless(ip, sni, base_params, ms, dns_tag)
+                    results.append({"ip": ip, "sni": sni, "ms": ms, "code": code, "cfg": cfg})
+                    col = GR if ms < 800 else YL
+                    erase_line()
+                    print(f"  {GR}✔{R}  {B}{ip:<17}{R}  {CY}{sni:<42}{R}  {col}{ms:.0f}ms{R}  {DIM}{code}{R}")
+                else:
+                    ip, sni, code = res
+                    results.append({"ip": ip, "sni": sni, "code": code})
+                    erase_line()
+                    print(f"  {GR}✔{R}  {B}{ip:<17}{R}  {CY}{sni:<42}{R}  {DIM}{code}{R}")
+
+                found_ips[ip]   += 1
+                found_snis[sni] += 1
+
+    except KeyboardInterrupt:
+        erase_line()
+        print(f"  {YL}⚠  Interrupted — bypassing stuck tasks and saving results instantly...{R}")
+        ex.shutdown(wait=False, cancel_futures=True)
+        interrupted = True
 
     print()
-    return results, found_ips, found_snis
+    return results, found_ips, found_snis, interrupted
 
 # ─── FILE WRITER ──────────────────────────────────────────────────────────────
+
+def _write_results_file(f, results, top_ips, top_snis, mode):
+    f.write(f"# {BRAND} v{VERSION}\n")
+    f.write(f"# {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    f.write(f"# Paste results at : {PASTE_URL}\n")
+    f.write(f"# Channel          : {CHANNEL}\n\n")
+
+    f.write("=" * 52 + "\n")
+    f.write("IPs — copy and paste into NetLeafy\n")
+    f.write("=" * 52 + "\n")
+    for ip in top_ips:
+        f.write(f"{ip}\n")
+
+    f.write("\n" + "=" * 52 + "\n")
+    f.write("SNIs — copy and paste into NetLeafy\n")
+    f.write("=" * 52 + "\n")
+    for sni in top_snis:
+        f.write(f"{sni}\n")
+
+    if mode == "vless":
+        f.write("\n" + "=" * 52 + "\n")
+        f.write("VLESS Configs — sorted fastest first\n")
+        f.write("=" * 52 + "\n")
+        for r in sorted(results, key=lambda x: x["ms"]):
+            f.write(f"\n# {r['ms']:.0f}ms  {r['ip']}  {r['sni']}\n{r['cfg']}\n")
+    else:
+        f.write("\n" + "=" * 52 + "\n")
+        f.write("Full Pairs\n")
+        f.write("=" * 52 + "\n")
+        for r in results:
+            f.write(f"{r['ip']}  {r['sni']}  {r['code']}\n")
 
 def save_results(results, found_ips, found_snis, mode, out_dir):
     top_ips  = [ip  for ip,  _ in found_ips.most_common(30)]
@@ -324,36 +391,16 @@ def save_results(results, found_ips, found_snis, mode, out_dir):
     label = "vless" if mode == "vless" else "pairs"
     path  = out_dir / f"NetLeafy_{label}_{ts}.txt"
 
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(f"# {BRAND} v{VERSION}\n")
-        f.write(f"# {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"# Paste results at : {PASTE_URL}\n")
-        f.write(f"# Channel          : {CHANNEL}\n\n")
-
-        f.write("=" * 52 + "\n")
-        f.write("IPs — copy and paste into NetLeafy\n")
-        f.write("=" * 52 + "\n")
-        for ip in top_ips:
-            f.write(f"{ip}\n")
-
-        f.write("\n" + "=" * 52 + "\n")
-        f.write("SNIs — copy and paste into NetLeafy\n")
-        f.write("=" * 52 + "\n")
-        for sni in top_snis:
-            f.write(f"{sni}\n")
-
-        if mode == "vless":
-            f.write("\n" + "=" * 52 + "\n")
-            f.write("VLESS Configs — sorted fastest first\n")
-            f.write("=" * 52 + "\n")
-            for r in sorted(results, key=lambda x: x["ms"]):
-                f.write(f"\n# {r['ms']:.0f}ms  {r['ip']}  {r['sni']}\n{r['cfg']}\n")
-        else:
-            f.write("\n" + "=" * 52 + "\n")
-            f.write("Full Pairs\n")
-            f.write("=" * 52 + "\n")
-            for r in results:
-                f.write(f"{r['ip']}  {r['sni']}  {r['code']}\n")
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            _write_results_file(f, results, top_ips, top_snis, mode)
+    except PermissionError:
+        path = Path.cwd() / f"NetLeafy_{label}_{ts}.txt"
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                _write_results_file(f, results, top_ips, top_snis, mode)
+        except Exception:
+            pass
 
     return path, top_ips, top_snis
 
@@ -363,7 +410,7 @@ def print_summary(results, found_ips, found_snis, mode, out_dir):
     print(hline())
 
     if not results:
-        print(f"\n  {RD}✗  No results. Try a different DNS mode or VLESS config.{R}\n")
+        print(f"\n  {RD}✗  No results. Try a different DNS mode or connection profile.{R}\n")
         return
 
     saved_path, top_ips, top_snis = save_results(results, found_ips, found_snis, mode, out_dir)
@@ -394,14 +441,19 @@ def print_summary(results, found_ips, found_snis, mode, out_dir):
 def main():
     if os.name != "nt":
         try:
-            subprocess.run(["termux-wake-lock"], capture_output=True)
-        except:
+            subprocess.run(["termux-wake-lock"], capture_output=True, check=False)
+        except Exception:
             pass
-
-    if os.name == "nt":
+    else:
         os.system("color")
 
     print_header()
+
+    ok, msg = check_curl()
+    if not ok:
+        print(f"\n  {RD}✗  System Requirement Failed: {msg}{R}")
+        print(f"     Please install cURL to use this scanner.\n")
+        sys.exit(1)
 
     out_dir = get_output_dir()
 
@@ -419,7 +471,7 @@ def main():
             print(f"\n  {RD}✗  Invalid VLESS URL — switching to pair-discovery mode.{R}")
             scan_choice = "1"
         else:
-            print(f"  {GR}✔  Parsed  {DIM}host: {base_params['host']}{R}")
+            print(f"  {GR}✔  Parsed  {DIM}host: {base_params.get('host', 'N/A')}{R}")
 
     section("DNS / Network Mode")
     for k, v in DNS_PROFILES.items():
@@ -429,6 +481,11 @@ def main():
     dns_choice  = prompt("DNS mode", "1")
     dns_cfg     = DNS_PROFILES.get(dns_choice, DNS_PROFILES["1"])
     dns_servers = dns_cfg["servers"]
+
+    if dns_servers and not has_dns_support():
+        print(f"\n  {YL}⚠  Warning: Your system's cURL version lacks Custom DNS support.{R}")
+        print(f"     Proceeding securely without DNS bypass...{R}")
+        dns_servers = None
 
     section("Performance Profile")
     for k, v in PERF_PROFILES.items():
@@ -462,7 +519,7 @@ def main():
     time.sleep(0.5)
 
     mode_key = "vless" if scan_choice == "2" else "basic"
-    results, found_ips, found_snis = run_scan(
+    results, found_ips, found_snis, interrupted = run_scan(
         mode_key, threads, timeout, dns_servers, base_params
     )
 
@@ -470,6 +527,9 @@ def main():
 
     if os.name == "nt":
         input("  Press Enter to exit...")
+
+    if interrupted:
+        os._exit(0)
 
 if __name__ == "__main__":
     main()
