@@ -52,7 +52,7 @@ DOMAINS = [
     "knative.dev", "buildpacks.io", "k3s.io", "falco.org", "kyverno.io",
     "kubevela.io", "kubeflow.org", "karmada.io", "spinnaker.io",
     "docs.kubernetes.io", "blog.kubernetes.io", "get.helm.sh", "min.io",
-    "grafana.com", "registry.k8s.io",
+    "grafana.com", "registry.k8s.io", "docusign.com", "vuejs.org"
 ]
 
 IPS = sorted(set([
