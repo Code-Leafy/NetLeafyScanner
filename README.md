@@ -215,8 +215,7 @@ For each IP × SNI pair:
 NetLeafyScanner/
 ├── scanner.py        # Main scanner
 ├── README.md         # This file
-├── LICENSE           # MIT License
-└── .gitignore        # Python gitignore
+└── LICENSE           # MIT License
 ```
 
 ---
