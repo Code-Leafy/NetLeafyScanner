@@ -31,7 +31,7 @@
 - ⚡ **Massively Parallel** — up to 150 threads, scans thousands of combinations fast
 - 📱 **Termux Ready** — auto wake-lock, mobile-safe profiles, tested on Android
 - 🛡️ **2-Stage Verification** — validates TLS handshake AND HTTP response, eliminates fake results
-- 🌐 **DNS Bypass Support** — built-in Shecan DNS for restricted networks
+- 🌐 **DNS Bypass Support** — Bypass Shecan
 - 🎯 **Smart Filtering** — drops blocked, reset, and DPI-injected responses automatically
 - 📄 **Auto-saves Results** — timestamped output to your Downloads folder
 - 🖥️ **Beautiful CLI** — real-time progress bar, colour-coded hits, clean summary
