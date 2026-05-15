@@ -1,14 +1,18 @@
 <div align="center">
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=28&pause=1000&color=00D4FF&center=true&vCenter=true&width=600&lines=⚡+NetLeafy+Scanner+v1.0;IP+%2B+SNI+Discovery+Tool;VLESS+Config+Generator" alt="NetLeafy Scanner" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:A8E55C,100:2DC94E&height=200&section=header&text=NetLeafy%20Scanner&fontSize=52&fontColor=ffffff&fontAlignY=38&desc=IP%20%2B%20SNI%20Discovery%20%E2%80%A2%20VLESS%20Config%20Generator&descSize=18&descAlignY=60&descColor=efffef" alt="NetLeafy Scanner" width="100%"/>
 
 <br/>
 
-[![Python](https://img.shields.io/badge/Python-3.7%2B-blue?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Termux-brightgreen?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Code-Leafy/NetLeafyScanner)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
-[![Telegram](https://img.shields.io/badge/Channel-%40codeleafy-blue?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/codeleafy)
-[![GitHub](https://img.shields.io/badge/GitHub-Code--Leafy-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Code-Leafy)
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1200&color=2DC94E&center=true&vCenter=true&width=500&lines=%E2%9A%A1+NetLeafy+Scanner+v1.0;Find+Working+IPs+%26+SNIs+Fast;Generate+VLESS+Configs+in+Seconds;Paste+Results+into+NetLeafy" alt="Typing animation" />
+
+<br/>
+
+[![Python](https://img.shields.io/badge/Python-3.7%2B-2DC94E?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Termux-A8E55C?style=for-the-badge&logo=windows&logoColor=white&labelColor=1a1a1a)](https://github.com/Code-Leafy/NetLeafyScanner)
+[![License](https://img.shields.io/badge/License-MIT-2DC94E?style=for-the-badge&labelColor=1a1a1a)](LICENSE)
+[![Telegram](https://img.shields.io/badge/Channel-%40codeleafy-2DC94E?style=for-the-badge&logo=telegram&logoColor=white&labelColor=1a1a1a)](https://t.me/codeleafy)
+[![GitHub](https://img.shields.io/badge/GitHub-Code--Leafy-A8E55C?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a1a)](https://github.com/Code-Leafy)
 
 <br/>
 
@@ -249,9 +253,13 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 <div align="center">
 
+<img src="assets/logo.png" alt="NetLeafy Logo" width="60"/>
+
 Made with ❤️ by [Code-Leafy](https://github.com/Code-Leafy)
 
 [![GitHub stars](https://img.shields.io/github/stars/Code-Leafy/NetLeafyScanner?style=social)](https://github.com/Code-Leafy/NetLeafyScanner/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/Code-Leafy/NetLeafyScanner?style=social)](https://github.com/Code-Leafy/NetLeafyScanner/network/members)
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:A8E55C,100:2DC94E&height=100&section=footer" width="100%"/>
 
 </div>
