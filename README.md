@@ -252,8 +252,6 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 <div align="center">
 
-<img src="assets/logo.png" alt="NetLeafy Logo" width="60"/>
-
 Made with ❤️ by [Code-Leafy](https://github.com/Code-Leafy)
 
 [![GitHub stars](https://img.shields.io/github/stars/Code-Leafy/NetLeafyScanner?style=social)](https://github.com/Code-Leafy/NetLeafyScanner/stargazers)
