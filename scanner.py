@@ -11,7 +11,7 @@ from pathlib import Path
 
 BRAND     = "NetLeafy Scanner"
 VERSION   = "1.0"
-PASTE_URL = "Code-Leafy.github.io/NetLeafy"
+PASTE_URL = "https://code-leafy.github.io/NetLeafy"
 CHANNEL   = "https://t.me/codeleafy"
 
 R   = "\033[0m"
