@@ -6,6 +6,9 @@
 
 <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1200&color=2DC94E&center=true&vCenter=true&width=500&lines=%E2%9A%A1+NetLeafy+Scanner+v1.0;Find+Working+IPs+%26+SNIs+Fast;Generate+VLESS+Configs+in+Seconds;Paste+Results+into+NetLeafy" alt="Typing animation" />
 
+<img src="./assets/preview.png" alt="NetLeafyScanner Preview" width="800" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
+
+<br/>
 <br/>
 
 [![Python](https://img.shields.io/badge/Python-3.7%2B-2DC94E?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
