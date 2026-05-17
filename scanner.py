@@ -80,10 +80,8 @@ PERF_PROFILES = {
 }
 
 DNS_PROFILES = {
-    "1": {"name": "Direct (System DNS)", "servers": None},
-    "2": {"name": "Shecan DNS Bypass",  "servers": ["178.22.122.101", "185.51.200.2"]},
-    "3": {"name": "Cloudflare DNS",     "servers": ["1.1.1.1", "1.0.0.1"]},
-    "4": {"name": "Google DNS",         "servers": ["8.8.8.8", "8.8.4.4"]},
+    "1": {"name": "Direct Mode", "desc": "Just scans normally", "servers": None},
+    "2": {"name": "Shecan Bypass Mode", "desc": "Bypass Shecan", "servers": ["178.22.122.101", "185.51.200.2"]}
 }
 
 STABILITY_FILTERS = {
@@ -409,7 +407,7 @@ def select_profile():
 def select_dns_mode():
     box_header("DNS Mode")
     for k, v in DNS_PROFILES.items():
-        box_item(k, v['name'])
+        box_item(k, v['name'], v.get('desc', ''))
     box_footer()
     choice = prompt("Select DNS mode", "1", choices=list(DNS_PROFILES.keys()))
     cfg = DNS_PROFILES[choice]
