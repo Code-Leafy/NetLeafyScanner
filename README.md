@@ -1,207 +1,150 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:78BBBB,100:459494&height=200&section=header&text=NetLeafy%20Scanner&fontSize=52&fontColor=ffffff&fontAlignY=38&desc=IP%20%2B%20SNI%20Discovery%20%E2%80%A2%20VLESS%20Config%20Generator&descSize=18&descAlignY=60&descColor=e0f4f4" alt="NetLeafy Scanner" width="100%"/>
+# NetLeafy Scanner
 
-<br/>
+Advanced IP + SNI discovery engine for high-speed VLESS configurations.
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1200&color=459494&center=true&vCenter=true&width=500&lines=%E2%9A%A1+NetLeafy+Scanner;Find+Working+IPs+%26+SNIs+Fast;Generate+VLESS+Configs+in+Seconds;Paste+Results+into+NetLeafy" alt="Typing animation" />
-
-<img src="./assets/image.png" alt="NetLeafyScanner Preview" width="800" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
-
-<br/>
-<br/>
-
-[![Python](https://img.shields.io/badge/Python-3.7%2B-459494?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Termux-78BBBB?style=for-the-badge&logo=windows&logoColor=white&labelColor=1a1a1a)](https://github.com/Code-Leafy/NetLeafyScanner)
-[![License](https://img.shields.io/badge/License-MIT-459494?style=for-the-badge&labelColor=1a1a1a)](LICENSE)
-[![Telegram](https://img.shields.io/badge/Channel-%40codeleafy-459494?style=for-the-badge&logo=telegram&logoColor=white&labelColor=1a1a1a)](https://t.me/codeleafy)
-[![GitHub](https://img.shields.io/badge/GitHub-Code--Leafy-78BBBB?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a1a)](https://github.com/Code-Leafy)
-
-<br/>
-
-> **Find working IP + SNI pairs in seconds. Generate ready-to-use VLESS configs.**  
-> Paste your results directly into [NetLeafy](https://Code-Leafy.github.io/NetLeafy) and connect.
-
-<br/>
+[![Version](https://img.shields.io/badge/version-2.0-459494?style=flat-square)](https://github.com/Code-Leafy/NetLeafyScanner)
+[![Python](https://img.shields.io/badge/python-3.7+-459494?style=flat-square)](https://python.org)
+[![License](https://img.shields.io/badge/license-MIT-459494?style=flat-square)](https://github.com/Code-Leafy/NetLeafyScanner)
+[![Status](https://img.shields.io/badge/status-active-459494?style=flat-square)]()
 
 </div>
 
 ---
+<div align="center">
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1200&color=459494&center=true&vCenter=true&width=500&lines=%E2%9A%A1+NetLeafy+Scanner;Find+Working+IPs+%26+SNIs+Fast;Generate+VLESS+Configs+in+Seconds;Paste+Results+into+NetLeafy" alt="Typing animation" />
 
-## ✨ Features
+<br/>
 
-- 🔍 **Dual Scan Modes** — IP/SNI pair discovery or full VLESS config generation
-- ⚡ **Massively Parallel** — up to 150 threads, scans thousands of combinations fast
-- 📱 **Termux Ready** — auto wake-lock, mobile-safe profiles, tested on Android
-- 🛡️ **2-Stage Verification** — validates TLS handshake AND HTTP response, eliminates fake results
-- 🌐 **DNS Bypass Support** — Bypass Shecan
-- 🎯 **Smart Filtering** — drops blocked, reset, and DPI-injected responses automatically
-- 📄 **Auto-saves Results** — timestamped output to your Downloads folder
-- 🖥️ **Beautiful CLI** — real-time progress bar, colour-coded hits, clean summary
+<img src="./assets/image.png" alt="NetLeafy Preview" width="720" style="border-radius: 12px; border: 1px solid rgba(0,0,0,0.05);">
 
----
+</div>
 
-## 📋 Requirements
+<br>
 
-| Requirement | Notes |
-|-------------|-------|
-| **Python 3.7+** | `python --version` to check |
-| **curl** | Pre-installed on Windows 10+, macOS, most Linux. Termux: `pkg install curl` |
-| No pip dependencies | Pure standard library |
+<br>
+
+## Overview
+
+NetLeafy Scanner is a massively parallel IP/SNI discovery tool designed to identify working Cloudflare edge nodes and clean SNI domains. It uses a 2-stage verification process to validate both TLS handshakes and HTTP response codes, ensuring zero fake-positive results.
+
+> **Note:** Designed to work perfectly alongside the **[NetLeafy Web Tool](https://code-leafy.github.io/NetLeafy)**. Scan, copy your results, and generate your optimized config instantly.
 
 ---
 
-## 🚀 Installation
+### Core Features
 
-### Windows
+#### ⚡ Parallel Probing Engine
+Capable of running up to 150 concurrent threads. Scans thousands of IP/SNI combinations in seconds without compromising accuracy.
+
+#### 📱 Mobile & Termux Optimized
+Includes native support for `termux-wake-lock` and specialized low-RAM performance profiles to prevent crashes on Android devices.
+
+#### 🛡️ 2-Stage Smart Filtering
+Drops blocked, reset, or DPI-injected responses automatically. It strictly validates the HTTP code and total connect time to ensure the highest stability.
+
+#### 🔄 Auto-Best Mode
+A fully automated sequence: Pings all IPs → Scans working pairs → Performs a 3-probe stability test → Outputs the absolute fastest results.
+
+---
+
+## Getting Started
+
+> **Prerequisites:** Python 3.7+, cURL (pre-installed on most OS).
 
 ```bash
-# Clone the repo
+# Clone the repository
 git clone https://github.com/Code-Leafy/NetLeafyScanner.git
+
+# Navigate to the folder
 cd NetLeafyScanner
 
-# Run
-python scanner.py
-```
-
-### Linux / macOS
-
-```bash
-git clone https://github.com/Code-Leafy/NetLeafyScanner.git
-cd NetLeafyScanner
+# Launch the scanner
 python3 scanner.py
 ```
 
-### Termux (Android)
+<details>
+<summary><kbd>🖥️</kbd> OS Specific Instructions</summary>
 
+**Windows:**
+Install Python from python.org, then run `python scanner.py` in PowerShell or CMD.
+
+**Termux (Android):**
 ```bash
-# Install dependencies
 pkg update && pkg install python curl git
-
-# Clone and run
-git clone https://github.com/Code-Leafy/NetLeafyScanner.git
-cd NetLeafyScanner
 python scanner.py
 ```
 
-> **Tip for Termux:** Keep your screen on or the scan may be killed. The tool calls `termux-wake-lock` automatically — make sure Termux:API is installed (`pkg install termux-api`).
-
-| Profile | Device | Threads | Timeout |
-|---------|--------|---------|---------|
-| 1 | Low-end mobile / Termux | 20 | 5s |
-| 2 | Mid-range mobile | 40 | 4s |
-| 3 | Desktop / PC | 80 | 3s |
-| 4 | High-end PC / Server | 150 | 2s |
-| 5 | Custom | you choose | you choose |
-
-> ⚠️ On Termux, stick to profiles 1–2. Higher thread counts can cause crashes on low-RAM devices.
+</details>
 
 ---
 
-## 📂 Output
+## Usage
 
-Results are saved automatically to your **Downloads folder** (or current directory as fallback):
+NetLeafy Scanner features a beautiful CLI menu. Choose a performance profile based on your hardware:
 
-```
-~/Downloads/NetLeafy_pairs_20250515_143022.txt
-~/Downloads/NetLeafy_vless_20250515_143022.txt
-```
+- <kbd>1</kbd> **Low-End Mobile** — 15 threads / 6s timeout
+- <kbd>3</kbd> **Desktop** — 60 threads / 3s timeout
+- <kbd>4</kbd> **Server/High-End PC** — 120 threads / 2s timeout
 
-Each file contains:
-
-```
-==================================================
-IPs — copy and paste into NetLeafy
-==================================================
-104.21.60.220
-172.67.150.14
-...
-
-==================================================
-SNIs — copy and paste into NetLeafy
-==================================================
-kubernetes.io
-helm.sh
-...
-
-==================================================
-VLESS Configs — sorted fastest first   (Mode 2 only)
-==================================================
-# 312ms  104.21.60.220  kubernetes.io
-vless://...
-```
+> 🚀 **Config Optimization:** After the scan, take your results to **[NetLeafy](https://code-leafy.github.io/NetLeafy)**. Select the **G2ray** server option and paste your config there to complete your setup.
 
 ---
 
-## 🌐 Paste Your Results
+## Output
 
-Once the scan finishes, copy the IPs and SNIs directly into:
+Results are auto-saved with timestamps to your **Downloads** folder (or current directory):
 
-### 👉 [Code-Leafy.github.io/NetLeafy](https://Code-Leafy.github.io/NetLeafy)
-
----
-
-## 📊 Database
-
-| Category | Count |
-|----------|-------|
-| IPs scanned | 130+ |
-| SNIs / Domains | 70+ |
-| Total combinations | ~9,100 per scan |
-
-All IPs are public CDN edge nodes. All SNIs are public open-source project domains.
-
----
-
-## 🛠️ How It Works
-
-```
-For each IP × SNI pair:
-  └─ curl resolves the domain to the target IP
-     └─ TLS handshake attempted
-        ├─ Fail (timeout / reset / 000) → dropped
-        └─ Success → HTTP response checked
-           ├─ Blocked code (403/502/521...) → dropped
-           └─ Valid response → recorded ✔
-```
----
-
-## 📁 Repository Structure
-
-```
+```text
 NetLeafyScanner/
-├── scanner.py        # Main scanner
-├── README.md         # This file
-└── LICENSE           # MIT License
+├── last_scan.json           # Cached results for stability checking
+└── NetLeafy_auto_best.txt    # Sorted results (IP | SNI | Latency)
+```
+
+<details>
+<summary><kbd>📊</kbd> Scanner Database Stats</summary>
+
+- **IPs in Database:** 130+ Verified CDN Nodes
+- **SNIs in Database:** 70+ Clean Domains
+- **Total Combinations:** ~9,100 per full scan
+
+</details>
+
+---
+
+## Architecture
+
+```mermaid
+graph LR
+    A[Scanner] -->|Massive Threading| B[cURL Probe]
+    B -->|TLS Handshake| C{Valid?}
+    C -->|Yes| D[HTTP Code Check]
+    D -->|Code 200/OK| E[Stability Test]
+    E -->|Fastest| F[Final Result File]
 ```
 
 ---
 
-## 📣 Channel & Support
+<details>
+<summary><kbd>❓</kbd> FAQ & Troubleshooting</summary>
+
+**Why am I getting "cURL Requirement Failed"?**
+Ensure `curl` is in your system PATH. On Linux/Termux, run `apt install curl`. On Windows, recent versions have it built-in.
+
+**What is "Shecan Bypass Mode"?**
+It uses specific DNS servers (178.22.122.101) to bypass regional restrictions during the SNI lookup phase.
+
+</details>
+
+<br>
 
 <div align="center">
 
-[![Telegram](https://img.shields.io/badge/Join%20Channel-%40codeleafy-459494?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/codeleafy)
+> **⚠️ Educational Purpose Only:** This project is intended for network research and educational use. Users are responsible for following local regulations.
 
-Get the latest configs, updates, and support on Telegram.
+[MIT License](https://github.com/Code-Leafy/NetLeafyScanner/blob/main/LICENSE) · Crafted by [Code-Leafy](https://github.com/Code-Leafy) · [Telegram Channel](https://t.me/codeleafy)
 
-</div>
-
----
-
-## ⚖️ License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
----
-
-<div align="center">
-
-Made with ❤️ by [Code-Leafy](https://github.com/Code-Leafy)
-
-[![GitHub stars](https://img.shields.io/github/stars/Code-Leafy/NetLeafyScanner?style=social)](https://github.com/Code-Leafy/NetLeafyScanner/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/Code-Leafy/NetLeafyScanner?style=social)](https://github.com/Code-Leafy/NetLeafyScanner/network/members)
-
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:78BBBB,100:459494&height=100&section=footer" width="100%"/>
+<br/>
 
 </div>
