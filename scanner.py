@@ -1,639 +1,636 @@
-import subprocess
-import os
-import sys
-import time
-import json
-import signal
-import socket
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from collections import Counter
+import os, sys, signal, socket, json, subprocess, time, shutil, ipaddress, re, tempfile, threading
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 
-# ─── CONSTANTS ────────────────────────────────────────────────────────────────
-BRAND = "NetLeafy Scanner"
-VERSION = "2.0"
+R, B, DIM = "\033[0m", "\033[1m", "\033[2m"
+CY, WH, GR = "\033[96m", "\033[97m", "\033[90m"
+YEL, RED, GRN = "\033[93m", "\033[91m", "\033[92m"
+
+BRAND = "NetLeafyScanner"
+VERSION = "Scanner V4"
 PASTE_URL = "https://code-leafy.github.io/NetLeafy"
 CHANNEL = "https://t.me/codeleafy"
-RESULTS_FILE = Path.home() / ".netleafy" / "last_scan.json"
-
-R, B, DIM = "\033[0m", "\033[1m", "\033[2m"
-CY, WH = "\033[96m", "\033[97m"
-
+RESULTS_DIR = Path.home() / ".netleafy"
 BAD_CODES = {"000", "403", "404", "502", "503", "521", "522", "523", "530"}
 
-# ─── DATABASES ────────────────────────────────────────────────────────────────
-DOMAINS = sorted(list(set([
-    "akamaihd.net", "argo-cd.readthedocs.io", "blog.helm.sh", "calico.org", 
-    "cert-manager.io", "cilium.io", "cloudflare.com", "cloudfront.net", 
-    "cluster-api.sigs.k8s.io", "cluster-proportional-autoscaler.sigs.k8s.io", 
-    "cncf.io", "container.sigs.k8s.io", "containerd.io", "controller-runtime.sigs.k8s.io", 
-    "crossplane.io", "descheduler.sigs.k8s.io", "docs.helm.sh", "docusign.com", 
-    "etcd.io", "external-dns.sigs.k8s.io", "fastly-edge.com", "fluxcd.io", 
-    "gateway-api.sigs.k8s.io", "github.io", "grafana.com", "harbor.io", 
-    "helm.sh", "herokuapp.com", "hierarchical-namespaces.sigs.k8s.io", 
-    "image-builder.sigs.k8s.io", "istio.io", "jobset.sigs.k8s.io", "kaniko.sigs.k8s.io", 
-    "keda.sh", "kind.sigs.k8s.io", "kops.sigs.k8s.io", "krew.sigs.k8s.io", 
-    "kubectl.docs.kubernetes.io", "kubebuilder.io", "kubernetes.io", 
-    "kueue.sigs.k8s.io", "kustomize.sigs.k8s.io", "kwok.sigs.k8s.io", 
-    "letsencrypt.org", "linkerd.io", "longhorn.io", "metrics-server.sigs.k8s.io", 
-    "minikube.sigs.k8s.io", "netlify.app", "node-feature-discovery.sigs.k8s.io", 
-    "nuxt.com", "nuxr.com", "openebs.io", "operatorframework.io", "pages.dev", 
-    "pnpm.io", "prometheus-operator.sigs.k8s.io", "prometheus.io", 
-    "registry.k8s.io", "rook.io", "scheduler-plugins.sigs.k8s.io", 
-    "secrets-store-csi-driver.sigs.k8s.io", "security-profiles-operator.sigs.k8s.io", 
-    "service-apis.sigs.k8s.io", "smashingmagazine.com", "tekton.dev", 
-    "vercel.app", "vitejs.dev", "vuejs.org"
-])))
-
-IPS = sorted(list(set([
-    "104.16.80.15", "104.17.96.15", "104.18.25.10", "104.18.25.196", "104.18.32.45",
-    "104.198.14.52", "104.21.1.100", "104.21.33.34", "104.21.40.50", "104.21.60.220",
-    "104.21.63.202", "104.22.10.20", "13.224.50.30", "13.32.50.30", "136.243.128.223",
-    "138.201.54.122", "142.54.178.211", "144.76.1.88", "148.251.100.110", "148.251.65.39",
-    "15.197.167.100", "15.197.167.90", "162.158.100.50", "168.119.202.236", "172.64.32.100",
-    "172.66.40.100", "172.67.150.14", "172.67.158.128", "172.67.70.100", "172.67.80.200",
-    "178.22.122.101", "178.63.240.111", "18.160.10.40", "184.171.110.10", "185.134.23.172",
-    "185.53.177.50", "188.114.96.10", "188.114.96.200", "188.114.96.3", "188.114.96.6",
-    "188.114.97.20", "188.114.97.3", "188.114.97.6", "188.114.98.0", "188.114.98.100",
-    "188.114.99.0", "188.114.99.150", "188.40.147.23", "188.40.181.55", "198.202.211.1",
-    "198.252.206.1", "204.12.192.223", "204.12.196.34", "212.83.100.120", "213.180.193.56",
-    "216.150.1.193", "216.198.79.3", "216.239.38.120", "23.185.0.3", "3.160.200.10",
-    "3.162.200.50", "3.162.247.34", "3.162.247.38", "3.162.247.45", "3.162.247.77",
-    "3.33.186.135", "34.160.100.20", "34.96.108.209", "35.157.26.135", "35.186.200.50",
-    "37.16.18.81", "40.114.177.246", "49.13.100.70", "5.161.50.60", "5.9.210.65",
-    "5.9.248.38", "50.7.5.83", "50.7.5.85", "50.7.85.43", "50.7.87.2", "50.7.87.3",
-    "50.7.87.4", "50.7.87.5", "52.222.214.108", "52.222.214.124", "52.222.214.38",
-    "52.222.214.99", "54.232.119.62", "63.141.252.203", "63.141.252.207", "63.176.8.218",
-    "65.108.50.80", "65.109.34.234", "75.2.60.5", "76.76.21.112", "76.76.21.21",
-    "83.136.211.95", "85.10.207.48", "85.10.207.51", "88.99.249.74", "91.99.175.105",
-    "94.130.13.19", "94.130.33.41", "94.130.50.12", "94.130.70.160", "95.216.69.37"
-])))
-
-# ─── PROFILES ─────────────────────────────────────────────────────────────────
-PERF_PROFILES = {
-    "1": {"name": "Low-End Mobile / Termux", "threads": 15, "timeout": 6, "ping_count": 2},
-    "2": {"name": "Mid-Range Mobile",        "threads": 30, "timeout": 4, "ping_count": 3},
-    "3": {"name": "Desktop / Laptop",        "threads": 60, "timeout": 3, "ping_count": 4},
-    "4": {"name": "High-End PC / Server",    "threads": 120,"timeout": 2, "ping_count": 5},
-    "5": {"name": "Custom",                  "threads": None,"timeout": None,"ping_count": None},
+PROFILES = {
+    "1": {"name": "Low",    "threads": 20,  "timeout": 6,  "ping_count": 2},
+    "2": {"name": "Mid",    "threads": 50,  "timeout": 4,  "ping_count": 3},
+    "3": {"name": "High",   "threads": 100, "timeout": 3,  "ping_count": 4},
+    "4": {"name": "Ultra",  "threads": 200, "timeout": 2,  "ping_count": 5},
+    "5": {"name": "Custom", "threads": None, "timeout": None, "ping_count": None},
 }
 
-DNS_PROFILES = {
-    "1": {"name": "Direct Mode", "desc": "Just scans normally", "servers": None},
-    "2": {"name": "Shecan Bypass Mode", "desc": "Bypass Shecan", "servers": ["178.22.122.101", "185.51.200.2"]}
-}
+print_lock = threading.Lock()
 
-STABILITY_FILTERS = {
-    "1": {"name": "Top 3 Fastest",  "limit": 3},
-    "2": {"name": "Top 5 Fastest",  "limit": 5},
-    "3": {"name": "Top 10 Fastest", "limit": 10},
-    "4": {"name": "All Working",    "limit": None},
-}
+def _flags():
+    return getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
 
-# ─── GLOBAL STATE ─────────────────────────────────────────────────────────────
-last_scan_results = []
-current_profile = None
-interrupted = False
-
-# ─── TERMINAL HELPERS ─────────────────────────────────────────────────────────
 def clear():
     os.system("cls" if os.name == "nt" else "clear")
 
-def term_width():
+def term_w():
     try:
         return min(os.get_terminal_size().columns, 80)
     except:
         return 80
 
-def box_header(title):
-    print(f"\n{CY}╭── {WH}{B}{title}{R}")
+def strip_ansi(text):
+    return re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', str(text))
 
-def box_item(idx, name, desc=""):
-    d_str = f" {DIM}{desc}{R}" if desc else ""
-    print(f"{CY}│ {WH}{idx}{CY}  {WH}{name}{d_str}{R}")
+def box(title=""):
+    w = term_w() - 4
+    print(f"\n{CY}╭{'─'*w}╮{R}")
+    if title:
+        ts = strip_ansi(title)
+        pad = (w - len(ts)) // 2
+        print(f"{CY}│{' '*pad}{WH}{B}{title}{' '*(w-pad-len(ts))}{CY}│{R}")
+        print(f"{CY}├{'─'*w}┤{R}")
 
-def box_footer():
-    print(f"{CY}╰──────────────────────────────────────────────{R}")
+def endbox():
+    w = term_w() - 4
+    print(f"{CY}╰{'─'*w}╯{R}")
 
-def box_text(text):
-    print(f"{CY}│ {WH}{text}{R}")
+def line(text="", indent=2):
+    w = term_w() - 4
+    ts = strip_ansi(str(text))
+    print(f"{CY}│{' '*indent}{text}{' '*max(w-indent-len(ts),0)}{CY}│{R}")
+
+def item(num, name, desc=""):
+    w = term_w() - 4
+    d = f" {DIM}{desc}{R}" if desc else ""
+    text = f"{WH}{num}.{CY} {WH}{name}{d}"
+    ts = strip_ansi(text)
+    print(f"{CY}│{' '*2}{text}{' '*max(w-2-len(ts),0)}{CY}│{R}")
+
+def clrline():
+    sys.stdout.write(f"\r{' ' * term_w()}\r")
+    sys.stdout.flush()
+
+def update_progress(cur, total, phase=""):
+    w = term_w() - 4
+    pct = cur / total if total > 0 else 0
+    bw = 30
+    full = int(pct * bw)
+    rem = int((pct * bw - full) * 8)
+    blocks = [" ", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"]
+    bar_fill = '█' * full
+    bar_rem = blocks[rem] if full < bw else ""
+    bar_empty = ' ' * (bw - full - 1) if full < bw else ""
+    bar = f"{CY}{bar_fill}{WH}{bar_rem}{DIM}{bar_empty}{R}"
+    spinners = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+    spinner = f"{YEL}{spinners[int(time.perf_counter() * 15) % len(spinners)]}{R}"
+    phase_str = f" {DIM}{phase}{R}" if phase else ""
+    text = f"{spinner} {bar} {WH}{int(pct*100):3d}%{CY} | {WH}{cur}/{total}{phase_str}"
+    ts = strip_ansi(text)
+    sys.stdout.write(f"\r{CY}│  {text}{' '*max(w-2-len(ts),0)}{CY}│{R}")
+    sys.stdout.flush()
+
+def banner():
+    clear()
+    print(fr"""{CY}
+███╗   ██╗███████╗████████╗██╗     ███████╗█████╗ ███████╗██╗   ██╗
+████╗  ██║██╔════╝╚══██╔══╝██║     ██╔════╝██╔══██╗██╔════╝╚██╗ ██╔╝
+██╔██╗ ██║█████╗     ██║   ██║     █████╗  ███████║█████╗   ╚████╔╝ 
+██║╚██╗██║██╔══╝     ██║   ██║     ██╔══╝  ██╔══██║██╔══╝    ╚██╔╝  
+██║ ╚████║███████╗   ██║   ███████╗███████╗██║  ██║██║        ██║   
+╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝╚═╝        ╚═╝   
+
+{WH}{B}        {VERSION}  {CY}|{WH}  Made By CodeLeafy       {R}
+""")
 
 def prompt(text, default=None, choices=None):
     suffix = f" {DIM}[{default}]{R}" if default else ""
     if choices:
-        suffix += f" {DIM}({', '.join(choices)}){R}"
+        suffix += f" {DIM}({','.join(choices)}){R}"
     try:
         while True:
-            val = input(f"{CY}│ {WH}› {text}{suffix}: {WH}").strip()
+            val = input(f"{CY}› {WH}{text}{suffix}: {WH}").strip()
             if val:
                 if choices and val not in choices:
-                    print(f"{CY}│ {WH}⚠ Invalid choice.{R}")
+                    print(f"{CY}! {YEL}Invalid{R}")
                     continue
                 return val
             if default:
                 return default
     except KeyboardInterrupt:
-        print(f"\n{CY}│ {WH}⚠ Cancelled.{R}\n")
+        print(f"\n{CY}! {RED}Cancelled{R}")
         sys.exit(0)
 
-def print_banner():
-    clear()
-    logo = f"""{CY}
- _   _      _   _               __       
-| \\ | | ___| |_| |    ___  __ _/ _|_   _ 
-|  \\| |/ _ \\ __| |   / _ \\/ _` | |_| | | |
-| |\\  |  __/ |_| |__|  __/ (_| |  _| |_| |
-|_| \\_|\\___|\\__|_____\\___|\\__,_|_|  \\__, |
-                                    |___/ {R}
-  {WH}{B}S C A N N E R{R} {DIM}v{VERSION}{R}
-"""
-    print(logo)
-    box_header("Information")
-    box_text(f"Paste results at : {CY}{PASTE_URL}{R}")
-    box_text(f"Telegram         : {CY}{CHANNEL}{R}")
-    box_footer()
+def expand_ips(content):
+    ips = set()
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "/" in line:
+            try:
+                for ip in ipaddress.ip_network(line, strict=False).hosts():
+                    ips.add(str(ip))
+            except:
+                pass
+        elif "-" in line:
+            try:
+                start, end = [p.strip() for p in line.split("-")]
+                if "." not in end:
+                    end = ".".join(start.split(".")[:3] + [end])
+                start_ip, end_ip = int(ipaddress.ip_address(start)), int(ipaddress.ip_address(end))
+                for ip_int in range(start_ip, end_ip + 1):
+                    ips.add(str(ipaddress.ip_address(ip_int)))
+            except:
+                pass
+        else:
+            try:
+                ipaddress.ip_address(line)
+                ips.add(line)
+            except:
+                pass
+    return sorted(ips, key=lambda x: int(ipaddress.ip_address(x)))
 
-def progress_bar(done, total, found):
-    bar_w = 30
-    filled = done * bar_w // total
-    pct = done * 100 // total
-    bar = f"{WH}{'█' * filled}{DIM}{'░' * (bar_w - filled)}{R}"
-    sys.stdout.write(f"\r{' ' * (term_width()-1)}\r{CY}│ {bar} {WH}{B}{pct:3d}%{R} {CY}│ {WH}✓ {found} found{R}")
-    sys.stdout.flush()
-
-def erase_line():
-    sys.stdout.write(f"\r{' ' * (term_width()-1)}\r")
-    sys.stdout.flush()
-
-# ─── SYSTEM CHECKS ────────────────────────────────────────────────────────────
-def check_curl():
+def load_file(path, expand_ranges=True, default=""):
     try:
-        r = subprocess.run(["curl", "-V"], capture_output=True, text=True, timeout=3)
-        return r.returncode == 0, ""
-    except FileNotFoundError:
-        return False, "cURL not in PATH"
-    except Exception as e:
-        return False, f"cURL error: {e}"
+        p = Path(path)
+        if not p.exists() and default:
+            p.write_text(default, encoding="utf-8")
+        if not p.exists():
+            return []
+        content = p.read_text(encoding="utf-8")
+        return expand_ips(content) if expand_ranges else [l.strip() for l in content.splitlines() if l.strip() and not l.startswith("#")]
+    except Exception:
+        return []
 
-def has_dns_support():
+def get_xray():
+    for p in ["xray", "xray.exe", "C:\\xray\\xray.exe", "C:\\Program Files\\xray\\xray.exe", "/usr/local/bin/xray", "/usr/bin/xray"]:
+        if shutil.which(p):
+            return shutil.which(p)
+    return "xray"
+
+def check_dep(cmd):
     try:
-        r = subprocess.run(
-            ["curl", "--dns-servers", "8.8.8.8", "-o", "/dev/null", "-w", "%{http_code}",
-             "--max-time", "1", "https://127.0.0.1"],
-            capture_output=True, text=True, timeout=2)
-        return "unknown option" not in r.stderr and "doesn't support" not in r.stderr
+        subprocess.run(cmd + ["--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3)
+        return True
     except:
         return False
 
-def get_output_dir():
-    prefix = os.environ.get("PREFIX", "")
-    if "termux" in prefix.lower():
-        dl = Path.home() / "storage" / "downloads"
-        return dl if dl.exists() else Path.home()
-    dl = Path.home() / "Downloads"
-    return dl if dl.exists() else Path.cwd()
-
-def ensure_results_dir():
-    RESULTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-def load_last_results():
-    global last_scan_results
-    if RESULTS_FILE.exists():
-        try:
-            with open(RESULTS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                last_scan_results = data.get("results", [])
-                return True
-        except:
-            pass
-    return False
-
-def save_last_results(results, meta):
-    ensure_results_dir()
-    data = {"timestamp": datetime.now().isoformat(), "results": results, "meta": meta}
-    with open(RESULTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-
-# ─── PROBING WORKERS ──────────────────────────────────────────────────────────
-def _flags():
-    return getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if os.name == "nt" else 0
-
-def probe_pair(ip, sni, timeout, dns_servers):
-    cmd = ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}:%{time_appconnect}:%{time_total}",
-           "--max-time", str(timeout), "--connect-timeout", str(timeout),
-           f"https://{sni}/", "--resolve", f"{sni}:443:{ip}",
-           "-H", f"Host: {sni}", "-H", "User-Agent: Mozilla/5.0"]
-    if dns_servers:
-        cmd += ["--dns-servers", ",".join(dns_servers)]
-    try:
-        out = subprocess.run(cmd, capture_output=True, text=True,
-                           creationflags=_flags(), timeout=timeout+2).stdout.strip()
-        if not out or ":" not in out:
-            return None
-        parts = out.split(":")
-        if len(parts) < 3 or not parts[1] or not parts[2]:
-            return None
-        code, tls_s, total_s = parts[0], float(parts[1]), float(parts[2])
-        ms = total_s * 1000
-        if code in BAD_CODES or ms <= 0 or ms > timeout*1000:
-            return None
-        return {"ip": ip, "sni": sni, "ms": round(ms, 1), "code": code}
-    except:
-        return None
-
-def tcp_ping_ip(ip, timeout, count):
+def tcp_ping(ip, timeout, count):
     times = []
     for _ in range(count):
         try:
-            start = time.time()
-            sock = socket.create_connection((ip, 443), timeout=timeout)
-            sock.close()
-            times.append((time.time() - start) * 1000)
-        except Exception:
-            pass
-    if times:
-        avg_ms = sum(times) / len(times)
-        return {"ip": ip, "reachable": True, "avg_ms": round(avg_ms, 1)}
-    return {"ip": ip, "reachable": False, "avg_ms": None}
+            s = time.perf_counter()
+            with socket.create_connection((ip, 443), timeout=timeout):
+                pass
+            times.append((time.perf_counter() - s) * 1000)
+        except:
+            continue
+    return sum(times) / len(times) if times else None
 
-# ─── SCAN ENGINES ─────────────────────────────────────────────────────────────
-def run_pair_scanner(threads, timeout, dns_servers, target_ips=None, target_snis=None):
-    global interrupted
-    target_ips = target_ips or IPS
-    target_snis = target_snis or DOMAINS
-    tasks = [(ip, sni) for ip in target_ips for sni in target_snis]
-    total, done, results = len(tasks), 0, []
-    found_ips, found_snis = Counter(), Counter()
+def curl_probe(ip, sni, timeout):
+    try:
+        out = subprocess.run(
+            ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}:%{time_total}",
+             "--max-time", str(timeout), "--connect-timeout", str(timeout),
+             f"https://{sni}/", "--resolve", f"{sni}:443:{ip}",
+             "-H", f"Host: {sni}", "-H", "User-Agent: Mozilla/5.0"],
+            capture_output=True, text=True, creationflags=_flags(), timeout=timeout + 2
+        ).stdout.strip()
+        if not out or ":" not in out:
+            return None
+        code, ms_sec = out.split(":")
+        ms = float(ms_sec) * 1000
+        if code not in BAD_CODES and 0 < ms <= timeout * 1000:
+            return {"ip": ip, "sni": sni, "ms": round(ms, 1), "code": code}
+    except:
+        pass
+    return None
+
+def find_free_port():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(('', 0))
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+def build_xray_config_from_uri(uri, target_ip, local_port):
+    try:
+        if uri.startswith("vless://") or uri.startswith("trojan://"):
+            parsed = urlparse(uri)
+            pwd_or_uuid = parsed.username
+            port = parsed.port or 443
+            qs = parse_qs(parsed.query)
+
+            def get_qs(k, def_val=""):
+                v = qs.get(k, [""])[0]
+                return v if v else def_val
+
+            sni = get_qs("sni", parsed.hostname or "")
+            net = get_qs("type", "tcp")
+            tls = get_qs("security", "none")
+            flow = get_qs("flow", "")
+            alpn = get_qs("alpn", "")
+            fp = get_qs("fp", "")
+
+            outbound = {
+                "protocol": "vless" if uri.startswith("vless://") else "trojan",
+                "settings": {},
+                "streamSettings": {"network": net, "security": tls}
+            }
+
+            if uri.startswith("vless://"):
+                user = {"id": pwd_or_uuid, "encryption": "none"}
+                if flow:
+                    user["flow"] = flow
+                outbound["settings"]["vnext"] = [{
+                    "address": target_ip,
+                    "port": int(port),
+                    "users": [user]
+                }]
+            else:
+                outbound["settings"]["servers"] = [{
+                    "address": target_ip,
+                    "port": int(port),
+                    "password": pwd_or_uuid
+                }]
+
+            if tls == "tls":
+                outbound["streamSettings"]["tlsSettings"] = {
+                    "serverName": sni,
+                    "allowInsecure": True
+                }
+                if fp: outbound["streamSettings"]["tlsSettings"]["fingerprint"] = fp
+                if alpn: outbound["streamSettings"]["tlsSettings"]["alpn"] = alpn.split(",")
+                    
+            elif tls == "reality":
+                outbound["streamSettings"]["realitySettings"] = {
+                    "serverName": sni,
+                    "publicKey": get_qs("pbk"),
+                    "shortId": get_qs("sid"),
+                    "spiderX": get_qs("spx", "/")
+                }
+                outbound["streamSettings"]["realitySettings"]["fingerprint"] = fp if fp else "chrome"
+                if alpn: outbound["streamSettings"]["realitySettings"]["alpn"] = alpn.split(",")
+
+            if net == "ws":
+                outbound["streamSettings"]["wsSettings"] = {
+                    "path": get_qs("path", "/"),
+                    "headers": {"Host": get_qs("host", sni)}
+                }
+            elif net == "grpc":
+                outbound["streamSettings"]["grpcSettings"] = {
+                    "serviceName": get_qs("serviceName", ""),
+                    "multiMode": get_qs("mode", "multi") != "gun"
+                }
+            elif net == "tcp":
+                header_type = get_qs("headerType", "none")
+                if header_type == "http":
+                    outbound["streamSettings"]["tcpSettings"] = {
+                        "header": {
+                            "type": "http",
+                            "request": {
+                                "path": [get_qs("path", "/")],
+                                "headers": {
+                                    "Host": [get_qs("host", sni)]
+                                }
+                            }
+                        }
+                    }
+
+            return {
+                "log": {"loglevel": "warning"},
+                "inbounds": [{"listen": "127.0.0.1", "port": local_port, "protocol": "socks"}],
+                "outbounds": [outbound],
+                "routing": {"domainStrategy": "IPIfNonMatch", "rules": []}
+            }
+    except Exception:
+        pass
+    return None
+
+def test_xray_speed(ip, uri, timeout):
+    local_port = find_free_port()
+    config_dict = build_xray_config_from_uri(uri, ip, local_port)
+    if not config_dict:
+        return None
+        
+    fd, temp_path = tempfile.mkstemp(suffix=".json")
+    with os.fdopen(fd, 'w') as f:
+        json.dump(config_dict, f)
+        
+    flags = _flags()
+    proc = subprocess.Popen([get_xray(), "run", "-c", temp_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
     
-    with ThreadPoolExecutor(max_workers=threads) as ex:
-        futures = [ex.submit(probe_pair, ip, sni, timeout, dns_servers) for ip, sni in tasks]
+    time.sleep(0.5) 
+    result = None
+    try:
+        s = time.perf_counter()
+        res = subprocess.run(
+            ["curl", "-s", "-o", "/dev/null", "-w", "%{speed_download}", "--max-time", str(timeout),
+             "-x", f"socks5h://127.0.0.1:{local_port}", "https://speed.cloudflare.com/__down?bytes=100000"],
+            capture_output=True, text=True, timeout=timeout + 1, creationflags=flags
+        )
+        if res.stdout.strip():
+            try:
+                speed = float(res.stdout.strip())
+                if speed > 0:
+                    result = {"ip": ip, "latency": round((time.perf_counter() - s) * 1000, 1), "speed": speed}
+            except:
+                pass
+    except:
+        pass
+        
+    try:
+        proc.terminate()
+        proc.wait(timeout=1)
+    except:
+        try:
+            proc.kill()
+        except:
+            pass
+            
+    try:
+        os.remove(temp_path)
+    except:
+        pass
+    return result
+
+def show_profile_select():
+    box("Performance Profile")
+    for k, v in PROFILES.items():
+        line(f"{k}. {v['name']}")
+    endbox()
+    choice = prompt("Select", "2", list(PROFILES.keys()))
+    prof = dict(PROFILES[choice])
+    if prof["threads"] is None:
+        prof["threads"] = int(prompt("Threads", "60"))
+        prof["timeout"] = int(prompt("Timeout (sec)", "3"))
+        prof["ping_count"] = int(prompt("Ping count", "4"))
+    return prof
+
+def netlify_full(profile):
+    banner()
+    box("Netlify Full Scan")
+    ips = load_file(Path(__file__).parent / "ip.txt", default="104.16.0.0/24\n104.17.0.0/24")
+    snis = load_file(Path(__file__).parent / "sni.txt", expand_ranges=False, default="speedtest.net\nnzoom.us")
+    if not ips or not snis:
+        line(f"{RED}! Missing ip.txt or sni.txt{R}")
+        endbox()
+        return
+    total = len(ips) * len(snis)
+    line(f"IPs: {CY}{len(ips)}{WH} | SNIs: {CY}{len(snis)}{WH} | Total: {CY}{total:,}{R}")
+    line(f"Threads: {CY}{profile['threads']}{WH} | Timeout: {CY}{profile['timeout']}s{R}")
+    endbox()
+    if prompt("Start scan?", "y", ["y", "n"]) != "y":
+        return
+    box("Scanning")
+    results, done = [], 0
+    with ThreadPoolExecutor(max_workers=profile["threads"]) as ex:
+        futures = {ex.submit(curl_probe, ip, sni, profile["timeout"]): (ip, sni) for ip in ips for sni in snis}
         try:
             for fut in as_completed(futures):
                 done += 1
-                try:
-                    res = fut.result()
-                except:
-                    res = None
-                progress_bar(done, total, len(results))
-                if res:
-                    results.append(res)
-                    found_ips[res["ip"]] += 1
-                    found_snis[res["sni"]] += 1
-                    erase_line()
-                    print(f"{CY}│ {WH}✓ {res['ip']:<16} {CY}{res['sni']:<35} {WH}{res['ms']:.0f}ms{R} {DIM}{res['code']}{R}")
-        except KeyboardInterrupt:
-            interrupted = True
-            erase_line()
-            print(f"{CY}│ {WH}⚠ Stopped — saving {len(results)} results...{R}")
-    print()
-    return results, found_ips, found_snis
-
-def run_ip_pinger(threads, timeout, count, target_ips=None):
-    target_ips = target_ips or IPS
-    results, reachable = [], 0
-    with ThreadPoolExecutor(max_workers=threads) as ex:
-        futures = [ex.submit(tcp_ping_ip, ip, timeout, count) for ip in target_ips]
-        total = len(futures)
-        for done, fut in enumerate(as_completed(futures), 1):
-            try:
                 res = fut.result()
-                if res and res["reachable"]:
-                    results.append(res)
-                    reachable += 1
-                    ms_str = f"{res['avg_ms']:.0f}ms" if res["avg_ms"] else "OK"
-                    print(f"{CY}│ {WH}✓ {res['ip']:<16} {CY}{ms_str}{R}")
-                progress_bar(done, total, reachable)
-            except:
-                pass
-    print()
-    return results
+                with print_lock:
+                    if res:
+                        results.append(res)
+                        clrline()
+                        sni_short = res['sni'][:18]
+                        print(f"{CY}│  {GRN}✓{WH} {res['ip']:<16} {CY}|{WH} {sni_short:<18} {CY}|{WH} {res['ms']:.0f}ms{DIM} {res['code']}{R}{' '*max(term_w()-80,0)}{CY}│{R}")
+                    update_progress(done, total)
+        except KeyboardInterrupt:
+            with print_lock:
+                clrline()
+                line(f"{YEL}Stopped by user{R}")
+    clrline()
+    line(f"{GRN}Scan Complete!{R}")
+    endbox()
+    if results:
+        sorted_res = sorted(results, key=lambda x: x["ms"])
+        box(f"Top Results ({len(results)} found)")
+        for i, r in enumerate(sorted_res[:20], 1):
+            line(f"{i:2}. {CY}{r['ip']:<16} {WH}| {CY}{r['sni'][:18]:<18} {WH}| {GRN}{r['ms']:.0f}ms{DIM} {r['code']}{R}")
+        endbox()
+        out = RESULTS_DIR / f"netlify_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(out, "w") as f:
+            for r in sorted_res[:100]:
+                f.write(f"{r['ip']} | {r['sni']} | {r['ms']:.0f}ms | {r['code']}\n")
+        box("Saved")
+        line(f"Saved to: {CY}{out.name}{R}")
+        endbox()
+    else:
+        box("Results")
+        line(f"{YEL}No working combinations found{R}")
+        endbox()
 
-def run_stability_check(candidates, threads, timeout, dns_servers):
-    stable_results = []
-    box_text(f"{DIM}Testing stability: 3 probes per candidate...{R}\n")
-    
-    def test_candidate(item):
-        scores = []
-        for _ in range(3):
-            res = probe_pair(item["ip"], item["sni"], timeout, dns_servers)
-            scores.append(res["ms"] if res and res["ms"] > 0 else 9999)
-        avg_ms = sum(scores) / 3
-        jitter = max(scores) - min(scores)
-        is_stable = jitter < 200 and avg_ms < 1500
-        return {**item, "avg_ms": round(avg_ms, 1), "jitter": round(jitter, 1), "stable": is_stable}
-        
-    with ThreadPoolExecutor(max_workers=threads) as ex:
-        futures = [ex.submit(test_candidate, c) for c in candidates]
+def netlify_ip_only(profile):
+    banner()
+    box("IP Only Scanner")
+    ips = load_file(Path(__file__).parent / "ip.txt", default="104.16.0.0/24")
+    if not ips:
+        line(f"{RED}! ip.txt not found or empty{R}")
+        endbox()
+        return
+    line(f"Testing {CY}{len(ips)}{WH} IPs | Probes: {CY}{profile['ping_count']}{R}")
+    endbox()
+    if prompt("Start scan?", "y", ["y", "n"]) != "y":
+        return
+    box("Pinging")
+    results, done = [], 0
+    with ThreadPoolExecutor(max_workers=profile["threads"]) as ex:
+        futures = {ex.submit(tcp_ping, ip, profile["timeout"], profile["ping_count"]): ip for ip in ips}
         try:
             for fut in as_completed(futures):
-                res = fut.result()
-                status = f"{WH}STABLE{R}" if res["stable"] else f"{DIM}UNSTABLE{R}"
-                if res["stable"]:
-                    stable_results.append(res)
-                print(f"{CY}│ {WH}✓ {res['ip']:<16} {CY}{res['sni']:<30} {WH}{res['avg_ms']:.0f}ms±{res['jitter']:.0f}{R} {status}")
+                done += 1
+                ms = fut.result()
+                ip = futures[fut]
+                with print_lock:
+                    if ms:
+                        results.append({"ip": ip, "ms": ms})
+                    update_progress(done, len(ips), f"| {GRN}{len(results)} live{R}")
+        except KeyboardInterrupt:
+            with print_lock:
+                clrline()
+                line(f"{YEL}Stopped by user{R}")
+    clrline()
+    line(f"{GRN}Scan Complete!{R} {WH}{len(results)}/{len(ips)} responded")
+    endbox()
+    if results:
+        sorted_res = sorted(results, key=lambda x: x["ms"])
+        box(f"Fastest IPs")
+        for i, r in enumerate(sorted_res[:20], 1):
+            line(f"{i:2}. {CY}{r['ip']:<16} {WH}| {GRN}{r['ms']:.0f}ms{R}")
+        endbox()
+        out = RESULTS_DIR / f"iponly_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(out, "w") as f:
+            for r in sorted_res:
+                f.write(f"{r['ip']}\n")
+        box("Saved")
+        line(f"Saved {len(sorted_res)} IPs to: {CY}{out.name}{R}")
+        endbox()
+    else:
+        box("Results")
+        line(f"{YEL}No IPs responded{R}")
+        endbox()
+
+def g2leafy_test(profile):
+    banner()
+    box("G2ray Real-Proxy Scanner")
+    xray_path = get_xray()
+    if not check_dep([xray_path]):
+        line(f"{RED}! xray-core not found!{R}")
+        line(f"{DIM}Install from: github.com/Code-Leafy/G2rayXCodeLeafy{R}")
+        endbox()
+        return
+    ips = load_file(Path(__file__).parent / "ip.txt", default="104.16.0.0/24")
+    if not ips:
+        line(f"{RED}! ip.txt not found or empty{R}")
+        endbox()
+        return
+    line(f"Loaded {CY}{len(ips)}{WH} IPs")
+    line(f"{DIM}Enter VLESS link (vless://...) or UUID@sni:port{R}")
+    endbox()
+    try:
+        config = input(f"{CY}› {WH}Config: {WH}").strip()
+    except KeyboardInterrupt:
+        return
+    if not config:
+        return
+        
+    uri = config
+    if not uri.startswith("vless://") and not uri.startswith("trojan://"):
+        if "@" in config:
+            parts = config.split("@")
+            sni_port = parts[1] if len(parts) > 1 else ""
+            sni = sni_port.split(":")[0] if ":" in sni_port else sni_port
+            port = int(sni_port.split(":")[1]) if ":" in sni_port else 443
+            uri = f"vless://{parts[0]}@{sni}:{port}?type=ws&security=tls&sni={sni}"
+        else:
+            print(f"{RED}! Invalid format{R}")
+            return
+            
+    max_show = int(prompt("Show top X IPs", "10", ["5", "10", "20", "50", "100"]))
+    endbox()
+
+    box("Phase 1: Finding Live IPs")
+    line(f"Testing {CY}{len(ips)}{WH} IPs for connectivity...")
+    endbox()
+
+    ping_results = []
+    done = 0
+    with ThreadPoolExecutor(max_workers=profile["threads"]) as ex:
+        futures = {ex.submit(tcp_ping, ip, profile["timeout"], 2): ip for ip in ips}
+        try:
+            for fut in as_completed(futures):
+                done += 1
+                ms = fut.result()
+                if ms:
+                    ping_results.append({"ip": futures[fut], "ms": ms})
+                update_progress(done, len(ips), f"| {GRN}{len(ping_results)} live{R}")
         except KeyboardInterrupt:
             pass
-    
-    return stable_results
 
-# ─── OUTPUT & SUMMARY ─────────────────────────────────────────────────────────
-def save_results(results, top_ips, top_snis, mode, out_dir):
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = out_dir / f"NetLeafy_{mode}_{ts}.txt"
-    
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(f"# {BRAND} v{VERSION} | {datetime.now()}\n")
-        f.write(f"# Paste these results at: {PASTE_URL}\n")
-        f.write(f"# Channel: {CHANNEL}\n\n")
-        
-        f.write(f"{'='*60}\nTOP IPs ({len(top_ips)})\n{'='*60}\n")
-        for ip in top_ips:
-            f.write(f"{ip}\n")
-        
-        f.write(f"\n{'='*60}\nTOP SNIs ({len(top_snis)})\n{'='*60}\n")
-        for sni in top_snis:
-            f.write(f"{sni}\n")
-        
-        f.write(f"\n{'='*60}\nAll Verified Pairs (IP | SNI | Latency | HTTP Code)\n{'='*60}\n")
-        for r in sorted(results, key=lambda x: x.get("ms", x.get("avg_ms", 9999))):
-            ms = r.get("ms", r.get("avg_ms", 0))
-            f.write(f"{r['ip']} | {r['sni']} | {ms:.0f}ms | {r.get('code', '200')}\n")
-    return path
+    clrline()
+    line(f"{GRN}Ping Complete!{R} {WH}{len(ping_results)}/{len(ips)} responded")
+    endbox()
 
-def print_summary(results, found_ips, found_snis, mode, out_dir):
-    if not results:
-        box_text(f"{WH}⚠ No results found. Try different settings.{R}")
-        box_footer()
+    if not ping_results:
+        line(f"{RED}! No live IPs found{R}")
+        endbox()
         return
-    
-    top_ips = [ip for ip, _ in found_ips.most_common(20)]
-    top_snis = [sni for sni, _ in found_snis.most_common(20)]
-    saved = save_results(results, top_ips, top_snis, mode, out_dir)
-    
-    save_last_results(results, {"ips": len(IPS), "domains": len(DOMAINS), "mode": mode})
-    
-    box_header("SCAN SUMMARY")
-    box_text(f"Top IPs (first 10):")
-    for ip in top_ips[:10]:
-        box_text(f"  {CY}{ip}{R}")
-    
-    box_text(f"\nTop SNIs (first 10):")
-    for sni in top_snis[:10]:
-        box_text(f"  {CY}{sni}{R}")
-    
-    box_text(f"\nFastest 5 Pairs:")
-    for r in sorted(results, key=lambda x: x["ms"])[:5]:
-        box_text(f"  {DIM}{r['ms']:.0f}ms{R} {WH}{r['ip']}{R} | {CY}{r['sni']}{R}")
-    
-    box_text(f"\n📁 Saved : {WH}{saved}{R}")
-    box_text(f"✓ Stats : {WH}{len(results)} pairs | {len(top_ips)} IPs | {len(top_snis)} SNIs{R}")
-    box_footer()
 
-# ─── MAIN MENU SYSTEM ─────────────────────────────────────────────────────────
-def select_profile():
-    box_header("System Profile")
-    for k, v in PERF_PROFILES.items():
-        box_item(k, v['name'])
-    box_footer()
-    choice = prompt("Select profile", "2", choices=list(PERF_PROFILES.keys()))
-    prof = PERF_PROFILES[choice]
-    if prof["threads"] is None:
-        prof["threads"] = int(prompt("Thread count", "40"))
-        prof["timeout"] = int(prompt("Timeout (seconds)", "4"))
-        prof["ping_count"] = int(prompt("Ping count per IP", "3"))
-    return prof
+    box("Phase 2: Speed Test")
+    line(f"Testing {CY}{len(ping_results)}{WH} live IPs for real proxy speed...")
+    endbox()
 
-def select_dns_mode():
-    box_header("DNS Mode")
-    for k, v in DNS_PROFILES.items():
-        box_item(k, v['name'], v.get('desc', ''))
-    box_footer()
-    choice = prompt("Select DNS mode", "1", choices=list(DNS_PROFILES.keys()))
-    cfg = DNS_PROFILES[choice]
-    if cfg["servers"] and not has_dns_support():
-        box_text(f"{WH}⚠ cURL lacks --dns-servers — using system DNS{R}")
-        cfg = DNS_PROFILES["1"]
-    return cfg
+    speed_results = []
+    done = 0
+    xray_threads = min(profile["threads"], 20)
 
-def main_menu():
-    print_banner()
-    global current_profile
-    current_profile = select_profile()
-    
-    while True:
-        print_banner()
-        box_header("Main Menu")
-        box_item("1", "Auto Find Best", "Ping -> Scan -> Stability Test")
-        box_item("2", "IP/SNI Scanner", "Find working IP+SNI combos")
-        box_item("3", "IP Pinger", "Test IP TCP latency")
-        box_item("4", "Stability Checker", "Re-test stable results")
-        box_item("0", "Exit")
-        box_footer()
-        
-        choice = prompt("Select option", "1", choices=["0","1","2","3","4"])
-        
-        if choice == "0":
-            box_text(f"👋 Goodbye!{R}")
-            box_footer()
-            break
-        elif choice == "1":
-            run_auto_mode()
-        elif choice == "2":
-            run_scanner_mode()
-        elif choice == "3":
-            run_pinger_mode()
-        elif choice == "4":
-            run_stability_mode()
-        
-        if not interrupted:
-            input(f"{CY}│ {DIM}Press Enter to continue...{R}")
+    with ThreadPoolExecutor(max_workers=xray_threads) as ex:
+        futures = {ex.submit(test_xray_speed, r["ip"], uri, profile["timeout"]): r["ip"] for r in ping_results}
+        try:
+            for fut in as_completed(futures):
+                done += 1
+                res = fut.result()
+                with print_lock:
+                    if res and res.get("speed"):
+                        speed_results.append(res)
+                    update_progress(done, len(ping_results), f"| {GRN}{len(speed_results)} working{R}")
+        except KeyboardInterrupt:
+            pass
 
-# ─── MODES ────────────────────────────────────────────────────────────────────
-def run_auto_mode():
-    box_header("Auto Find Best")
-    box_text(f"{DIM}1. Ping all IPs to find reachable ones{R}")
-    box_text(f"{DIM}2. Scan working IPs with all SNIs{R}")
-    box_text(f"{DIM}3. Put working pairs into Stability Test{R}")
-    box_text(f"{DIM}4. Display the absolute best pairs{R}")
-    box_text("")
-    box_text(f"{WH}⚠ This process might take some time.{R}")
-    box_footer()
-    
-    ans = prompt("Proceed?", "y", choices=["y", "n"])
-    if ans != "y":
-        return
-        
-    dns_cfg = select_dns_mode()
-    out_dir = get_output_dir()
-    
-    # STEP 1: Ping
-    box_header("Step 1/3: Pinging IPs")
-    reachable_ip_results = run_ip_pinger(current_profile["threads"], current_profile["timeout"], current_profile["ping_count"])
-    working_ips = [r["ip"] for r in reachable_ip_results if r["reachable"]]
-    
-    if not working_ips:
-        box_text("⚠ No working IPs found. Aborting.")
-        box_footer()
-        return
-    
-    # STEP 2: Scan
-    box_header(f"Step 2/3: Scanning Pairs ({len(working_ips)} IPs × {len(DOMAINS)} SNIs)")
-    results, ips_c, snis_c = run_pair_scanner(
-        current_profile["threads"], current_profile["timeout"], dns_cfg["servers"], working_ips, DOMAINS
-    )
-    
-    if not results:
-        box_text("⚠ No working pairs found. Aborting.")
-        box_footer()
-        return
-        
-    # STEP 3: Stability
-    box_header(f"Step 3/3: Stability Test ({len(results)} Working Pairs)")
-    stable_results = run_stability_check(results, current_profile["threads"], current_profile["timeout"], dns_cfg["servers"])
-    
-    if not stable_results:
-        box_text("⚠ No stable pairs survived. Aborting.")
-        box_footer()
-        return
-        
-    # FINAL RESULTS
-    stable_results.sort(key=lambda x: x["avg_ms"])
-    
-    box_header("AUTO MODE - FINAL BEST RESULTS")
-    box_text(f"✓ Total Stable Pairs Found: {WH}{len(stable_results)}{R}")
-    
-    for limit in [3, 5, 10]:
-        subset = stable_results[:limit]
-        if not subset:
-            continue
-        box_text("")
-        box_text(f"{WH}{B}► TOP {limit} BEST PAIRS{R}")
-        for i, r in enumerate(subset, 1):
-            box_text(f"  {DIM}{i}.{R} {CY}{r['ip']:<16}{R} {WH}|{R} {CY}{r['sni']:<30}{R} {WH}|{R} {WH}{r['avg_ms']:.0f}ms±{r['jitter']:.0f}{R}")
-            
-        if len(stable_results) <= limit:
-            break
-            
-    # Save Logic
-    top_ips = list(dict.fromkeys([r["ip"] for r in stable_results]))
-    top_snis = list(dict.fromkeys([r["sni"] for r in stable_results]))
-    
-    saved = save_results(stable_results, top_ips[:20], top_snis[:20], "auto_best", out_dir)
-    save_last_results(stable_results, {"ips": len(working_ips), "domains": len(DOMAINS), "mode": "auto"})
-    
-    box_text("")
-    box_text(f"📁 Saved Full Results to : {CY}{saved}{R}")
-    box_footer()
+    clrline()
+    line(f"{GRN}Speed Test Complete!{R} {WH}{len(speed_results)}/{len(ping_results)} give speed")
+    endbox()
 
-def run_scanner_mode():
-    dns_cfg = select_dns_mode()
-    out_dir = get_output_dir()
-    total = len(IPS) * len(DOMAINS)
-    
-    box_header("Scanner Mode")
-    box_text(f"DNS     : {CY}{dns_cfg['name']}{R}")
-    box_text(f"Profile : {CY}{current_profile['name']} | {current_profile['threads']} thr / {current_profile['timeout']}s{R}")
-    box_text(f"Tests   : {CY}{len(IPS)} IPs × {len(DOMAINS)} SNIs = {total:,} combos{R}")
-    box_text(f"Output  : {CY}{out_dir}{R}")
-    box_footer()
-    time.sleep(0.3)
-    
-    results, ips, snis = run_pair_scanner(
-        current_profile["threads"], current_profile["timeout"], dns_cfg["servers"]
-    )
-    print_summary(results, ips, snis, "pairs", out_dir)
-
-def run_pinger_mode():
-    box_header("IP Pinger")
-    box_text(f"Testing {len(IPS)} IPs with TCP {current_profile['ping_count']} probes{R}")
-    box_footer()
-    
-    results = run_ip_pinger(current_profile["threads"], current_profile["timeout"], current_profile["ping_count"])
-    
-    box_header("Pinger Summary")
-    if results:
-        reachable = [r for r in results if r["avg_ms"]]
-        box_text(f"✓ {len(reachable)}/{len(results)} IPs responded")
-        if reachable:
-            best = sorted(reachable, key=lambda x: x["avg_ms"])[:10]
-            fastest_str = ", ".join("{}({:.0f}ms)".format(r["ip"], r["avg_ms"]) for r in best)
-            box_text(f"Fastest: {CY}{fastest_str}{R}")
+    if speed_results:
+        sorted_res = sorted(speed_results, key=lambda x: x.get("latency", 9999))
+        box(f"Top {max_show} Working IPs")
+        for i, r in enumerate(sorted_res[:max_show], 1):
+            spd = r.get("speed", 0)
+            spd_str = f"{spd/1024:.0f} KB/s" if spd < 1024*1024 else f"{spd/1024/1024:.1f} MB/s"
+            line(f"{i:2}. {CY}{r['ip']:<18} {WH}| {GRN}{r['latency']:.0f}ms{R} {WH}| {CY}{spd_str}{R}")
+        endbox()
+        out = RESULTS_DIR / f"g2ray_working_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(out, "w") as f:
+            for r in sorted_res[:max_show]:
+                f.write(f"{r['ip']}\n")
+        box("Saved")
+        line(f"Saved {len(sorted_res[:max_show])} IPs to: {CY}{out.name}{R}")
+        endbox()
     else:
-        box_text(f"⚠ No IPs responded{R}")
-    box_footer()
+        box("Results")
+        line(f"{YEL}No IPs gave actual speed{R}")
+        line(f"{DIM}Try different config or increase timeout{R}")
+        endbox()
 
-def run_stability_mode():
-    if not load_last_results():
-        box_header("Stability Checker")
-        box_text(f"⚠ No previous scan results found.{R}")
-        box_text(f"{DIM}Run Scanner first to generate results.{R}")
-        box_footer()
-        time.sleep(2)
-        return
-    
-    box_header("Stability Checker")
-    box_text(f"Loaded {len(last_scan_results)} results from last scan{R}")
-    for k, v in STABILITY_FILTERS.items():
-        box_item(k, v['name'])
-    box_footer()
-    
-    limit_choice = prompt("Filter results", "2", choices=list(STABILITY_FILTERS.keys()))
-    limit = STABILITY_FILTERS[limit_choice]["limit"]
-    
-    dns_cfg = select_dns_mode()
-    out_dir = get_output_dir()
-    
-    candidates = sorted(last_scan_results, key=lambda x: x.get("ms", x.get("avg_ms", 9999)))
-    if limit:
-        candidates = candidates[:limit]
-    
-    box_header("Testing Stability")
-    box_text(f"Testing : {CY}Top {limit or 'ALL'} candidates × 3 probes{R}")
-    box_text(f"DNS     : {CY}{dns_cfg['name']}{R}")
-    box_footer()
-    
-    stable = run_stability_check(candidates, current_profile["threads"], current_profile["timeout"], dns_cfg["servers"])
-    
-    box_header("Stability Summary")
-    if stable:
-        box_text(f"✓ {len(stable)} stable results found{R}")
-        top_ips = [r["ip"] for r in sorted(stable, key=lambda x: x["avg_ms"])]
-        top_snis = [r["sni"] for r in sorted(stable, key=lambda x: x["avg_ms"])]
-        saved = save_results(stable, Counter(top_ips).most_common(20), Counter(top_snis).most_common(20), "stable", out_dir)
-        box_text(f"📁 Saved to : {CY}{saved}{R}")
-    else:
-        box_text(f"⚠ No stable results found.{R}")
-    box_footer()
-
-# ─── ENTRY POINT ──────────────────────────────────────────────────────────────
 def main():
     if os.name != "nt":
         try:
-            subprocess.run(["termux-wake-lock"], capture_output=True, check=False)
+            subprocess.run(["termux-wake-lock"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
         except:
             pass
     else:
         os.system("color")
-    
-    ok, msg = check_curl()
-    if not ok:
-        box_header("Requirement Failed")
-        box_text(f"⚠ {msg}")
-        box_text("Install cURL: apt install curl | brew install curl | choco install curl")
-        box_footer()
+    if not check_dep(["curl"]):
+        print(f"{RED}! curl not found!{R}")
         sys.exit(1)
-    
-    try:
-        main_menu()
-    except KeyboardInterrupt:
-        box_header("Interrupted")
-        box_text("👋 Interrupted — results auto-saved.")
-        box_footer()
-    finally:
-        if interrupted:
-            os._exit(0)
+    while True:
+        banner()
+        box("Select Mode")
+        item("1", "Netlify", "IP + SNI scan")
+        item("2", "G2ray", "Real proxy speed test")
+        item("0", "Exit")
+        endbox()
+        mode = prompt("Mode", "1", ["0", "1", "2"])
+        if mode == "0":
+            print(f"\n{WH}Goodbye!{R}\n")
+            break
+        profile = show_profile_select()
+        if mode == "1":
+            while True:
+                banner()
+                box("Netlify Options")
+                item("1", "Full Scan", "Test IP × SNI combinations")
+                item("2", "IP Only", "Latency test only")
+                item("0", "Back")
+                endbox()
+                opt = prompt("Select", "1", ["0", "1", "2"])
+                if opt == "0":
+                    break
+                elif opt == "1":
+                    netlify_full(profile)
+                elif opt == "2":
+                    netlify_ip_only(profile)
+                if opt != "0":
+                    input(f"\n{CY}Press Enter to continue...{WH}")
+        elif mode == "2":
+            g2leafy_test(profile)
+            input(f"\n{CY}Press Enter to continue...{WH}")
 
 if __name__ == "__main__":
-    signal.signal(signal.SIGINT, lambda s,f: os._exit(0))
+    signal.signal(signal.SIGINT, lambda s, f: os._exit(0))
     main()
