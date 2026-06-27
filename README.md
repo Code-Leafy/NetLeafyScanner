@@ -1,10 +1,9 @@
 <div align="center">
 
-# NetLeafy Scanner V4
+# NetLeafy Scanner
 
 Advanced IP + SNI discovery engine and Real-Proxy Speed Tester for high-speed VLESS & Trojan configurations.
 
-[![Version](https://img.shields.io/badge/version-4.0-459494?style=flat-square)](https://github.com/Code-Leafy/NetLeafyScanner)
 [![Python](https://img.shields.io/badge/python-3.7+-459494?style=flat-square)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-459494?style=flat-square)](https://github.com/Code-Leafy/NetLeafyScanner)
 [![Status](https://img.shields.io/badge/status-active-459494?style=flat-square)]()
@@ -13,7 +12,7 @@ Advanced IP + SNI discovery engine and Real-Proxy Speed Tester for high-speed VL
 
 ---
 <div align="center">
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1200&color=459494&center=true&vCenter=true&width=500&lines=%E2%9A%A1+NetLeafy+Scanner+V4;Find+Working+IPs+%26+SNIs+Fast;Test+Real+Proxy+Speeds;Generate+Configs+in+Seconds" alt="Typing animation" />
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1200&color=459494&center=true&vCenter=true&width=500&lines=%E2%9A%A1+NetLeafy+Scanner;Find+Working+IPs+%26+SNIs+Fast;Test+Real+Proxy+Speeds;Generate+Configs+in+Seconds" alt="Typing animation" />
 
 <br/>
 
@@ -27,7 +26,7 @@ Advanced IP + SNI discovery engine and Real-Proxy Speed Tester for high-speed VL
 
 ## Overview
 
-NetLeafy Scanner is a massively parallel IP/SNI discovery and validation tool. With **Version 4**, it now includes the **G2ray Real-Proxy Scanner**, allowing you to parse VLESS/Trojan configurations, spawn temporary local `xray-core` instances, and test actual payload download speeds directly through the proxy.
+NetLeafy Scanner is a massively parallel IP/SNI discovery and validation tool. It includes the **G2ray Real-Proxy Scanner**, allowing you to parse VLESS/Trojan configurations, spawn temporary local `xray-core` instances, and test actual payload download speeds directly through the proxy.
 
 > **Note:** Designed to work perfectly alongside the **[NetLeafy Web Tool](https://code-leafy.github.io/NetLeafy)**. Scan, copy your results, and generate your optimized config instantly.
 
@@ -35,8 +34,8 @@ NetLeafy Scanner is a massively parallel IP/SNI discovery and validation tool. W
 
 ### Core Features
 
-#### ⚡ G2ray Real-Proxy Scanner (NEW)
-Don't just ping IPs—test their actual bandwidth. Parses your `vless://` or `trojan://` links, routes traffic through a local `xray-core` instance, and downloads real payloads to measure exact connection speeds (KB/s or MB/s).
+#### ⚡ G2ray Real-Proxy Scanner
+Don't just ping IPs — test their actual bandwidth. Parses your `vless://` or `trojan://` links, routes traffic through a local `xray-core` instance, and downloads real payloads to measure exact connection speeds (KB/s or MB/s).
 
 #### 🔍 Massively Parallel Probing Engine
 Capable of running up to 200+ concurrent threads. Scans thousands of IP/SNI combinations in seconds using a 2-stage verification process to validate both TLS handshakes and HTTP response codes.
@@ -150,7 +149,7 @@ The scanner reads from two files located in the **same directory as the script**
 
 ```mermaid
 graph LR
-    A[Scanner V4] --> B{Mode Select}
+    A[Scanner] --> B{Mode Select}
     B -->|Netlify Mode| C[Parallel cURL Probes]
     C --> D[TLS & HTTP Code Validation]
     B -->|G2ray Mode| E[Ping Live IPs]
