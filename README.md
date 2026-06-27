@@ -185,7 +185,7 @@ Ensure the VLESS/Trojan configuration URI you provided is completely valid and t
 
 > **⚠️ Educational Purpose Only:** This project is intended for network research and educational use. Users are responsible for following local regulations.
 
-[MIT License](https://github.com/Code-Leafy/NetLeafyScanner/blob/main/LICENSE) · Crafted by [Code-Leafy](https://github.com/Code-Leafy) · [Telegram Channel](https://t.me/codeleafy)
+[MIT License](https://github.com/Code-Leafy/NetLeafyScanner/blob/main/LICENSE) · Crafted by [Code-Leafy](https://github.com/Code-Leafy)
 
 <br/>
 
